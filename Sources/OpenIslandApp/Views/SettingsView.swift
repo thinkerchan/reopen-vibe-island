@@ -334,7 +334,11 @@ struct AboutSettingsPane: View {
     var model: AppModel
 
     private var lang: LanguageManager { model.lang }
-    private let primaryInk = Color.white.opacity(0.94)
+    /// Tracks the system / user-chosen color scheme so the "Check for
+    /// updates" / "Quit" rows stay readable under both. Was hardcoded
+    /// `Color.white.opacity(0.94)` which became invisible after the
+    /// main-window theme picker enabled light mode.
+    private let primaryInk = Color.primary.opacity(0.92)
 
     var body: some View {
         VStack(spacing: 0) {
