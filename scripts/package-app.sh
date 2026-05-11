@@ -3,13 +3,13 @@
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-    echo "Open Island packaging runs only on macOS." >&2
+    echo "ReOpenIsland packaging runs only on macOS." >&2
     exit 1
 fi
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-app_name="${OPEN_ISLAND_APP_NAME:-Open Island}"
-bundle_identifier="${OPEN_ISLAND_BUNDLE_ID:-app.openisland.dev}"
+app_name="${OPEN_ISLAND_APP_NAME:-ReOpenIsland}"
+bundle_identifier="${OPEN_ISLAND_BUNDLE_ID:-com.thinkerchan.reopenisland}"
 version="${OPEN_ISLAND_VERSION:-0.1.0}"
 build_number="${OPEN_ISLAND_BUILD_NUMBER:-$(git -C "$repo_root" rev-list --count HEAD 2>/dev/null || echo 1)}"
 package_root="${OPEN_ISLAND_PACKAGE_ROOT:-$repo_root/output/package}"
@@ -111,9 +111,19 @@ cat > "$bundle_dir/Contents/Info.plist" <<EOF
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/Octane0411/open-vibe-island/main/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>${OPEN_ISLAND_EDDSA_PUBLIC_KEY:-3IF8txq9RRNanzE2FNhyGRcwhslTucCcJHpTkpxcgBQ=}</string>
+    <string>https://raw.githubusercontent.com/thinkerchan/open-vibe-island/main/appcast.xml</string>
+    <!--
+        SUPublicEDKey deliberately omitted: this fork does not yet sign
+        Sparkle update payloads. Sparkle will refuse the update if it
+        cannot verify a missing/invalid signature, so the in-app
+        "Check for updates" only works when:
+          1) you generate an EdDSA key pair via Sparkle's `generate_keys`,
+          2) embed the public key here as <key>SUPublicEDKey</key><string>…</string>,
+          3) sign each release zip with the private key and put the
+             signature in appcast.xml's `sparkle:edSignature` attribute.
+        Until then, end users should download new versions manually
+        from the GitHub Releases page.
+    -->
 </dict>
 </plist>
 EOF
