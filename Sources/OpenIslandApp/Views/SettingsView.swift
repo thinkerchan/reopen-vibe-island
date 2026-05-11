@@ -228,20 +228,6 @@ struct GeneralSettingsPane: View {
                 ))
             }
 
-            Section(lang.t("settings.general.appearance")) {
-                Picker(lang.t("settings.general.mainWindowColorScheme"), selection: Binding(
-                    get: { model.mainWindowColorScheme },
-                    set: { model.mainWindowColorScheme = $0 }
-                )) {
-                    Text(lang.t("settings.general.colorScheme.system")).tag(MainWindowColorScheme.system)
-                    Text(lang.t("settings.general.colorScheme.light")).tag(MainWindowColorScheme.light)
-                    Text(lang.t("settings.general.colorScheme.dark")).tag(MainWindowColorScheme.dark)
-                }
-                Text(lang.t("settings.general.mainWindowColorScheme.footnote"))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
         }
         .formStyle(.grouped)
         .navigationTitle(lang.t("settings.tab.general"))
@@ -274,6 +260,20 @@ struct DisplaySettingsPane: View {
                     LabeledContent(lang.t("settings.display.currentScreen"), value: diag.targetScreenName)
                     LabeledContent(lang.t("settings.display.layoutMode"), value: diag.modeDescription)
                 }
+            }
+
+            Section(lang.t("settings.display.appearance")) {
+                Picker(lang.t("settings.display.mainWindowColorScheme"), selection: Binding(
+                    get: { model.mainWindowColorScheme },
+                    set: { model.mainWindowColorScheme = $0 }
+                )) {
+                    Text(lang.t("settings.display.colorScheme.system")).tag(MainWindowColorScheme.system)
+                    Text(lang.t("settings.display.colorScheme.light")).tag(MainWindowColorScheme.light)
+                    Text(lang.t("settings.display.colorScheme.dark")).tag(MainWindowColorScheme.dark)
+                }
+                Text(lang.t("settings.display.mainWindowColorScheme.footnote"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
