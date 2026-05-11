@@ -87,7 +87,14 @@ public enum CodexAppServerNotification: Sendable {
 public final class CodexAppServerClient: @unchecked Sendable {
     private let codexPath: String
     private var process: Process?
-    private var stdin: FileHandle?
+    /// Internal access so tests can inject a discard `Pipe` and drive
+    /// the request path without launching a real codex subprocess.
+    var stdin: FileHandle?
+    /// Per-request timeout. App-server RPC calls (initialize,
+    /// thread/list, …) normally complete in tens of milliseconds; a
+    /// hang past 30 s means codex is wedged and we must release the
+    /// caller rather than pin its `Task` forever.
+    var requestTimeoutSeconds: TimeInterval = 30
     private var readBuffer = Data()
 
     /// Test-only accessor for asserting buffer state after `handleIncomingData`.
@@ -221,6 +228,19 @@ public final class CodexAppServerClient: @unchecked Sendable {
         var line = try JSONSerialization.data(withJSONObject: envelope)
         line.append(contentsOf: [UInt8(ascii: "\n")])
 
+        // Race the response continuation against a timeout task.
+        // Without this, a wedged app-server (no disconnect, no reply)
+        // would leave the `await` suspended forever — pinning the
+        // continuation, the caller's Task, and any memory referenced
+        // by either.
+        let timeoutSeconds = requestTimeoutSeconds
+        let timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(timeoutSeconds))
+            guard !Task.isCancelled else { return }
+            self?.failPendingRequest(id: requestID, with: .timeout)
+        }
+        defer { timeoutTask.cancel() }
+
         // Register the continuation BEFORE writing — a fast app-server can
         // reply between write() and registration, which would cause
         // handleResponse to drop the reply and hang the await forever.
@@ -230,6 +250,18 @@ public final class CodexAppServerClient: @unchecked Sendable {
             lock.unlock()
             stdin.write(line)
         }
+    }
+
+    /// Atomically removes a pending request and resumes its
+    /// continuation with the given error. Safe to call concurrently
+    /// with `handleResponse`: whichever side wins the dictionary
+    /// removal performs the resume; the other side gets `nil` and
+    /// no-ops.
+    private func failPendingRequest(id: Int, with error: CodexAppServerError) {
+        lock.lock()
+        let continuation = pendingRequests.removeValue(forKey: id)
+        lock.unlock()
+        continuation?.resume(throwing: error)
     }
 
     // MARK: - Incoming data
