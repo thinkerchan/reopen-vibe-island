@@ -102,7 +102,10 @@ struct SettingsView: View {
             detailView
         }
         .frame(minWidth: 680, idealWidth: 780, minHeight: 480, idealHeight: 560)
-        .preferredColorScheme(.dark)
+        // Scoped to the Settings window only — the notch overlay sits
+        // in a separate NSWindow with its own SwiftUI hierarchy and is
+        // unaffected by this modifier.
+        .preferredColorScheme(model.mainWindowColorScheme.swiftUIScheme)
         .onReceive(NotificationCenter.default.publisher(for: .openIslandSelectSetupTab)) { _ in
             selectedTab = .setup
         }
@@ -258,6 +261,20 @@ struct DisplaySettingsPane: View {
                     LabeledContent(lang.t("settings.display.layoutMode"), value: diag.modeDescription)
                 }
             }
+
+            Section(lang.t("settings.display.appearance")) {
+                Picker(lang.t("settings.display.mainWindowColorScheme"), selection: Binding(
+                    get: { model.mainWindowColorScheme },
+                    set: { model.mainWindowColorScheme = $0 }
+                )) {
+                    Text(lang.t("settings.display.colorScheme.system")).tag(MainWindowColorScheme.system)
+                    Text(lang.t("settings.display.colorScheme.light")).tag(MainWindowColorScheme.light)
+                    Text(lang.t("settings.display.colorScheme.dark")).tag(MainWindowColorScheme.dark)
+                }
+                Text(lang.t("settings.display.mainWindowColorScheme.footnote"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .navigationTitle(lang.t("settings.tab.display"))
@@ -317,7 +334,11 @@ struct AboutSettingsPane: View {
     var model: AppModel
 
     private var lang: LanguageManager { model.lang }
-    private let primaryInk = Color.white.opacity(0.94)
+    /// Tracks the system / user-chosen color scheme so the "Check for
+    /// updates" / "Quit" rows stay readable under both. Was hardcoded
+    /// `Color.white.opacity(0.94)` which became invisible after the
+    /// main-window theme picker enabled light mode.
+    private let primaryInk = Color.primary.opacity(0.92)
 
     var body: some View {
         VStack(spacing: 0) {

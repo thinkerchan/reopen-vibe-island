@@ -5,8 +5,14 @@ import { connect } from "net";
 import { appendFileSync } from "fs";
 import { homedir } from "os";
 
-const DEBUG_LOG = "/tmp/open-island-opencode-debug.log";
+// Debug logging is opt-in. Production users get no disk writes from
+// the plugin. Set `OPEN_ISLAND_OPENCODE_DEBUG_LOG=/path/to/file.log`
+// in the OpenCode environment to enable. The previous default of
+// unconditionally appending to /tmp/open-island-opencode-debug.log
+// grew ~25 MB per active day per user with no rotation.
+const DEBUG_LOG = process.env.OPEN_ISLAND_OPENCODE_DEBUG_LOG;
 function debugLog(msg) {
+  if (!DEBUG_LOG) return;
   try { appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] ${msg}\n`); } catch {}
 }
 
