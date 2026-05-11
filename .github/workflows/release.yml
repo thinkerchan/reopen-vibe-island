@@ -76,7 +76,7 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --title "ReOpenIsland $GITHUB_REF_NAME" \
@@ -88,7 +88,7 @@ jobs:
 
       - name: Append install instructions to release notes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           existing="$(gh release view "$GITHUB_REF_NAME" --json body -q .body)"
           gh release edit "$GITHUB_REF_NAME" --notes "$(cat <<EOF
