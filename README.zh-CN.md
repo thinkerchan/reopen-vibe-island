@@ -13,14 +13,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thinkerchan/open-vibe-island/releases/latest"><img src="https://img.shields.io/github/v/release/thinkerchan/open-vibe-island?style=flat-square&label=release&color=blue" alt="最新版本"></a>
-  <a href="https://github.com/thinkerchan/open-vibe-island/stargazers"><img src="https://img.shields.io/github/stars/thinkerchan/open-vibe-island?style=flat-square&color=yellow" alt="Stars"></a>
+  <a href="https://github.com/thinkerchan/reopen-vibe-island/releases/latest"><img src="https://img.shields.io/github/v/release/thinkerchan/reopen-vibe-island?style=flat-square&label=release&color=blue" alt="最新版本"></a>
+  <a href="https://github.com/thinkerchan/reopen-vibe-island/stargazers"><img src="https://img.shields.io/github/stars/thinkerchan/reopen-vibe-island?style=flat-square&color=yellow" alt="Stars"></a>
   <a href="https://discord.gg/bPF2HpbCFb"><img src="https://img.shields.io/discord/1490752192368476253?style=flat-square&logo=discord&label=discord&color=5865F2" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL%20v3-green?style=flat-square" alt="License: GPL v3"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/thinkerchan/open-vibe-island/releases">下载</a> ·
+  <a href="https://github.com/thinkerchan/reopen-vibe-island/releases">下载</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="docs/roadmap.zh-CN.md">路线图</a> ·
   <a href="CONTRIBUTING.zh-CN.md">参与贡献</a>
@@ -39,6 +39,72 @@
 > 原始产品、设计与绝大部分代码均归上游作者及贡献者所有，由衷感谢 ❤️。
 > 本 fork 包含额外的修复与改动；这里发布的版本是**未签名**的社区构建版本
 > （首次启动需要绕过 Gatekeeper）。
+
+## 本 fork 相对上游的改动
+
+以下所有改动叠加在上游
+[Octane0411/open-vibe-island@v1.1.1](https://github.com/Octane0411/open-vibe-island/releases/tag/v1.1.1)
+之上。每条都是 fork `main` 上一个独立的 merge commit ——
+如果你只想要其中某些可单独 cherry-pick。
+
+### Bug 修复 — 内存与磁盘
+
+- **BridgeServer**：会话结束时清理 Claude tool / agent / TaskCreate
+  的孤儿 pending dict。这三个字典之前会持有完整 `toolInput` JSON
+  树（Edit / Write 工具是整个文件内容），只要 agent 在
+  `preToolUse` 与 `postToolUse` 之间崩溃就永久驻留——长跑的会话能
+  实测出 RSS 增长。
+- **CodexRolloutDiscovery**：`discoverRecord` 改为按行流式读 rollout
+  JSONL。原本 10 秒一次的 rediscover 用 `String(contentsOf:)`
+  整文件读，几 MB 的 rollout 每次产生约 3× 文件大小的 String 突发
+  分配，把 RSS 推向 swap。
+- **ClaudeTranscriptDiscovery**：启动恢复路径同样改成流式。重度
+  Claude 用户几百 MB 的 transcript 之前会让启动峰值达到几 GB，低
+  内存机器 OOM。
+- **OpenCode 插件 debug 日志**：改为通过
+  `OPEN_ISLAND_OPENCODE_DEBUG_LOG` 环境变量按需开启。原本无条件
+  把每个 event append 到 `/tmp/open-island-opencode-debug.log`，
+  无 rotation，活跃用户约 25 MB/天单调增长。
+- **WatchNotificationRelay**：会话被 resolve 时清理*所有*该会话的
+  pending request，每个清理出的 `requestID` 单独发一个 SSE 事件。
+  之前一次只删第一条，并发的 permission/question 全部静默泄漏。
+- **CodexAppServer.handleIncomingData**：每行用 `removeSubrange`
+  替代 `Data(slice)`（O(N²) → O(N)），并加 8 MB 上限防止恶意/异常
+  对端不发 `\n` 时 OOM。
+- **CodexAppServerClient**：每个请求加超时（默认 30 秒），通过已
+  存在但无人使用的 `CodexAppServerError.timeout` 路径返回。卡死的
+  app-server 之前会让调用方 `Task` 永远 suspend。
+
+### Bug 修复 — UI
+
+- **WorkspaceNameResolver / spotlight branch 解析**：不再在 SwiftUI
+  的 computed property 里调用 `gitBranch(for:)`。layout pass 里走文件
+  系统找 `.git` 在多 session 场景下把 CPU 钉在 ~99 %、RSS 飙到 3 GB。
+  现在仅走纯字符串的 `worktreeBranch(for:)`（识别
+  `.claude/worktrees/`、`.git/worktrees/` 标记）；后续如需对任意
+  cwd 解析分支，应该在 session 创建时预解析，不在视图体里做 IO。
+- **About 页 light 模式可读**：`primaryInk` 之前硬编码
+  `Color.white.opacity(0.94)`，主题切换上线后浅色模式下变白底白字。
+  改用 `Color.primary`。
+
+### 新功能
+
+- **主窗口浅色 / 深色 / 跟随系统切换器**（设置 → 显示 → 外观）。
+  刘海浮窗刻意不受影响——它有自己适配刘海的视觉处理。
+
+### 品牌与基础设施（仅 fork）
+
+- Bundle Identifier：`com.thinkerchan.reopenisland`
+- 显示名：**ReOpenIsland**（Swift 模块名仍是 `OpenIsland*`，
+  `UserDefaults` key 仍是 `app.openisland.*`，让旧版本的偏好能迁移）
+- Sparkle：`SUFeedURL` 指向本 fork 的 `appcast.xml`；
+  `SUPublicEDKey` **已移除**，所以 in-app "检查更新" 在你生成自己的
+  EdDSA 密钥对、把公钥嵌进 `Info.plist`、并对每个 release zip 签名
+  之前是 best-effort 的
+- CI release 工作流去掉了 Apple Developer ID 签名、公证、Sparkle
+  EdDSA 签名、Homebrew tap 更新、contributors 图缓存刷新等步骤。
+  CI 输出的是 unsigned DMG/ZIP 草稿 release，安装时首次需要
+  `xattr -dr com.apple.quarantine /Applications/ReOpenIsland.app`
 
 ---
 
@@ -121,7 +187,7 @@ ReOpenIsland 驻留在 Mac 的**刘海区域**（或顶部栏），为你的 AI 
 
 ### 方式一：直接下载
 
-从 [GitHub Releases](https://github.com/thinkerchan/open-vibe-island/releases) 下载最新 DMG——已签名公证，开箱即用。
+从 [GitHub Releases](https://github.com/thinkerchan/reopen-vibe-island/releases) 下载最新 DMG——已签名公证，开箱即用。
 
 ### 方式二：Homebrew
 
@@ -134,7 +200,7 @@ brew install --cask octane0411/tap/openisland
 ### 方式三：从源码构建
 
 ```bash
-git clone https://github.com/thinkerchan/open-vibe-island.git
+git clone https://github.com/thinkerchan/reopen-vibe-island.git
 cd open-vibe-island
 open Package.swift   # 在 Xcode 中打开，点击 Run
 ```
@@ -198,7 +264,7 @@ Hooks **fail open**——如果 ReOpenIsland 没在运行，你的 agents 不受
 <summary>点击展开</summary>
 
 ```
-我在使用 ReOpenIsland (https://github.com/thinkerchan/open-vibe-island) 时遇到了问题。
+我在使用 ReOpenIsland (https://github.com/thinkerchan/reopen-vibe-island) 时遇到了问题。
 
 请帮我提交一个 GitHub issue，按以下步骤操作：
 
@@ -219,26 +285,26 @@ Hooks **fail open**——如果 ReOpenIsland 没在运行，你的 agents 不受
    - 正文包含以下部分：**环境信息**、**问题描述**、**复现步骤**、**期望行为 vs 实际行为**
    - 如果是 bug 请添加 "bug" 标签
 
-仓库：thinkerchan/open-vibe-island
+仓库：thinkerchan/reopen-vibe-island
 ```
 
 </details>
 
 ## Star History
 
-<a href="https://star-history.com/#thinkerchan/open-vibe-island&Date">
+<a href="https://star-history.com/#thinkerchan/reopen-vibe-island&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=thinkerchan/open-vibe-island&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=thinkerchan/open-vibe-island&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=thinkerchan/open-vibe-island&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=thinkerchan/reopen-vibe-island&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=thinkerchan/reopen-vibe-island&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=thinkerchan/reopen-vibe-island&type=Date" />
  </picture>
 </a>
 
 ## Contributors
 
-<a href="https://github.com/thinkerchan/open-vibe-island/graphs/contributors">
+<a href="https://github.com/thinkerchan/reopen-vibe-island/graphs/contributors">
   <!-- CONTRIBUTORS-IMG:START -->
-  <img src="https://contrib.rocks/image?repo=thinkerchan/open-vibe-island&t=1778349385" />
+  <img src="https://contrib.rocks/image?repo=thinkerchan/reopen-vibe-island&t=1778349385" />
   <!-- CONTRIBUTORS-IMG:END -->
 </a>
 
