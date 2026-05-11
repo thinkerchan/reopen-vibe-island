@@ -89,6 +89,11 @@ public final class CodexAppServerClient: @unchecked Sendable {
     private var process: Process?
     private var stdin: FileHandle?
     private var readBuffer = Data()
+
+    /// Test-only accessor for asserting buffer state after `handleIncomingData`.
+    var readBufferCountForTests: Int {
+        readBuffer.count
+    }
     private var pendingRequests: [Int: CheckedContinuation<Data, any Error>] = [:]
     private var nextRequestID = 1
     private let lock = NSLock()
@@ -229,12 +234,25 @@ public final class CodexAppServerClient: @unchecked Sendable {
 
     // MARK: - Incoming data
 
-    private func handleIncomingData(_ data: Data) {
+    /// Maximum bytes we will accumulate without seeing a newline. Codex
+    /// app-server RPC messages are line-delimited JSON; lines past this
+    /// size indicate either a malformed stream or a runaway result. We
+    /// drop the buffer rather than let it grow without bound (would OOM
+    /// if the producer never sends `\n`).
+    static let maxLineByteCount = 8 * 1_024 * 1_024
+
+    func handleIncomingData(_ data: Data) {
         readBuffer.append(data)
 
         while let newlineIndex = readBuffer.firstIndex(of: UInt8(ascii: "\n")) {
+            // Slice the line out, then trim the consumed prefix in place
+            // with `removeSubrange`. The previous `readBuffer = Data(...)`
+            // re-allocated and copied the whole tail on every line, so a
+            // burst of N lines from codex was O(N²) — measurable when a
+            // tool result emits hundreds of progress events back-to-back.
             let lineData = readBuffer[readBuffer.startIndex..<newlineIndex]
-            readBuffer = Data(readBuffer[readBuffer.index(after: newlineIndex)...])
+            let consumeUpTo = readBuffer.index(after: newlineIndex)
+            defer { readBuffer.removeSubrange(readBuffer.startIndex..<consumeUpTo) }
 
             guard !lineData.isEmpty,
                   let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any]
@@ -245,6 +263,13 @@ public final class CodexAppServerClient: @unchecked Sendable {
             } else if let method = json["method"] as? String {
                 handleNotification(method: method, json: json)
             }
+        }
+
+        if readBuffer.count > Self.maxLineByteCount {
+            // Drop the runaway prefix; keep the connection up so the next
+            // well-framed line still has a chance. The peer will likely
+            // emit a protocol error which propagates as a normal `rpcError`.
+            readBuffer.removeAll(keepingCapacity: false)
         }
     }
 
