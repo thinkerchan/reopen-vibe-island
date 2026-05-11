@@ -33,7 +33,7 @@
 <summary>点击展开 prompt</summary>
 
 ```
-我在使用 ReOpenIsland (https://github.com/thinkerchan/open-vibe-island) 时遇到了问题。
+我在使用 ReOpenIsland (https://github.com/thinkerchan/reopen-vibe-island) 时遇到了问题。
 
 请帮我提交一个 GitHub issue，步骤如下：
 
@@ -54,7 +54,7 @@
    - 正文包含以下部分：**环境信息**、**问题描述**、**复现步骤**、**期望行为 vs 实际行为**
    - 如适用，添加 "bug" 标签
 
-仓库：thinkerchan/open-vibe-island
+仓库：thinkerchan/reopen-vibe-island
 ```
 
 </details>
@@ -67,7 +67,7 @@
 <summary>点击展开 prompt</summary>
 
 ```
-我想为 ReOpenIsland (https://github.com/thinkerchan/open-vibe-island) 提一个功能建议。
+我想为 ReOpenIsland (https://github.com/thinkerchan/reopen-vibe-island) 提一个功能建议。
 
 请帮我提交一个 GitHub issue，步骤如下：
 
@@ -81,7 +81,7 @@
    - 正文包含以下部分：**功能描述**、**动机**、**预期行为**
    - 如适用，添加 "enhancement" 标签
 
-仓库：thinkerchan/open-vibe-island
+仓库：thinkerchan/reopen-vibe-island
 ```
 
 </details>

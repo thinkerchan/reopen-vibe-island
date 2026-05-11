@@ -111,7 +111,7 @@ cat > "$bundle_dir/Contents/Info.plist" <<EOF
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>SUFeedURL</key>
-    <string>https://raw.githubusercontent.com/thinkerchan/open-vibe-island/main/appcast.xml</string>
+    <string>https://raw.githubusercontent.com/thinkerchan/reopen-vibe-island/main/appcast.xml</string>
     <!--
         SUPublicEDKey deliberately omitted: this fork does not yet sign
         Sparkle update payloads. Sparkle will refuse the update if it
