@@ -102,7 +102,10 @@ struct SettingsView: View {
             detailView
         }
         .frame(minWidth: 680, idealWidth: 780, minHeight: 480, idealHeight: 560)
-        .preferredColorScheme(.dark)
+        // Scoped to the Settings window only — the notch overlay sits
+        // in a separate NSWindow with its own SwiftUI hierarchy and is
+        // unaffected by this modifier.
+        .preferredColorScheme(model.mainWindowColorScheme.swiftUIScheme)
         .onReceive(NotificationCenter.default.publisher(for: .openIslandSelectSetupTab)) { _ in
             selectedTab = .setup
         }
@@ -223,6 +226,20 @@ struct GeneralSettingsPane: View {
                     get: { model.suppressFrontmostNotifications },
                     set: { model.suppressFrontmostNotifications = $0 }
                 ))
+            }
+
+            Section(lang.t("settings.general.appearance")) {
+                Picker(lang.t("settings.general.mainWindowColorScheme"), selection: Binding(
+                    get: { model.mainWindowColorScheme },
+                    set: { model.mainWindowColorScheme = $0 }
+                )) {
+                    Text(lang.t("settings.general.colorScheme.system")).tag(MainWindowColorScheme.system)
+                    Text(lang.t("settings.general.colorScheme.light")).tag(MainWindowColorScheme.light)
+                    Text(lang.t("settings.general.colorScheme.dark")).tag(MainWindowColorScheme.dark)
+                }
+                Text(lang.t("settings.general.mainWindowColorScheme.footnote"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
         }
