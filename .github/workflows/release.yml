@@ -74,39 +74,65 @@ jobs:
 
           echo "Bundle structure OK"
 
+      - name: Compose release notes (auto changelog + install steps)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Step 1: ask GitHub to auto-generate the changelog body for
+          # this tag (PRs / commits since previous tag). Using the JSON
+          # endpoint avoids needing to first create the release with
+          # `--generate-notes` and then read it back through a fragile
+          # heredoc — the previous flow blew up because auto-generated
+          # markdown frequently contains backticks / `$` that re-evaluate
+          # in unquoted heredocs.
+          previous_tag="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')"
+          if [[ -n "$previous_tag" ]]; then
+            previous_arg='-f previous_tag_name="'"$previous_tag"'"'
+          else
+            previous_arg=''
+          fi
+          gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${GITHUB_REF_NAME}" \
+            ${previous_arg} \
+            -q '.body' > /tmp/auto_notes.md || echo "" > /tmp/auto_notes.md
+
+          # Step 2: append a literal install-steps block. Quoted heredoc
+          # delimiter so backticks / `$` inside stay literal.
+          {
+            cat /tmp/auto_notes.md
+            cat <<'INSTALL'
+
+---
+
+## Installation
+
+1. Download **ReOpenIsland.dmg**, open it, drag **ReOpenIsland** to **Applications**.
+2. First launch: macOS will block the app because it isn't signed
+   with an Apple Developer ID. Either:
+   - **Right-click → Open → Open** in the Gatekeeper dialog, or
+   - run `xattr -dr com.apple.quarantine "/Applications/ReOpenIsland.app"` once.
+3. Requires **macOS 14+** (Apple Silicon and Intel).
+
+> This is an unsigned community fork build — Apple Developer ID
+> signing and notarization are intentionally skipped. Re-enable them
+> in `.github/workflows/release.yml` once you set up signing secrets.
+INSTALL
+          } > /tmp/release_notes.md
+
+          echo "--- Composed notes ---"
+          head -40 /tmp/release_notes.md
+
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --title "ReOpenIsland $GITHUB_REF_NAME" \
-            --generate-notes \
-            --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" \
+            --notes-file /tmp/release_notes.md \
             --draft \
             "output/package/ReOpenIsland.dmg#ReOpenIsland.dmg (macOS, Universal, unsigned)" \
             "output/package/ReOpenIsland.zip#ReOpenIsland.zip (macOS, Universal, unsigned)"
-
-      - name: Append install instructions to release notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          existing="$(gh release view "$GITHUB_REF_NAME" --json body -q .body)"
-          gh release edit "$GITHUB_REF_NAME" --notes "$(cat <<EOF
-          ${existing}
-
-          ---
-
-          ## Installation
-
-          1. Download **ReOpenIsland.dmg**, open it, drag **ReOpenIsland** to **Applications**.
-          2. First launch: macOS will block the app because it isn't signed
-             with an Apple Developer ID. Either:
-             - **Right-click → Open → Open** in the Gatekeeper dialog, or
-             - run \`xattr -dr com.apple.quarantine "/Applications/ReOpenIsland.app"\` once.
-          3. Requires **macOS 14+** (Apple Silicon and Intel).
-
-          > This is an unsigned community fork build — Apple Developer ID
-          > signing and notarization are intentionally skipped. Re-enable them
-          > in \`.github/workflows/release.yml\` once you set up signing secrets.
-          EOF
-          )"
