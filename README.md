@@ -13,14 +13,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thinkerchan/open-vibe-island/releases/latest"><img src="https://img.shields.io/github/v/release/thinkerchan/open-vibe-island?style=flat-square&label=release&color=blue" alt="Latest Release"></a>
-  <a href="https://github.com/thinkerchan/open-vibe-island/stargazers"><img src="https://img.shields.io/github/stars/thinkerchan/open-vibe-island?style=flat-square&color=yellow" alt="Stars"></a>
+  <a href="https://github.com/thinkerchan/reopen-vibe-island/releases/latest"><img src="https://img.shields.io/github/v/release/thinkerchan/reopen-vibe-island?style=flat-square&label=release&color=blue" alt="Latest Release"></a>
+  <a href="https://github.com/thinkerchan/reopen-vibe-island/stargazers"><img src="https://img.shields.io/github/stars/thinkerchan/reopen-vibe-island?style=flat-square&color=yellow" alt="Stars"></a>
   <a href="https://discord.gg/bPF2HpbCFb"><img src="https://img.shields.io/badge/discord-join-5865F2?style=flat-square&logo=discord" alt="Discord"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL%20v3-green?style=flat-square" alt="License: GPL v3"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/thinkerchan/open-vibe-island/releases">Download</a> ·
+  <a href="https://github.com/thinkerchan/reopen-vibe-island/releases">Download</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="docs/roadmap.md">Roadmap</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
@@ -39,6 +39,78 @@
 > goes to the upstream author and contributors — sincere thanks ❤️.
 > This fork carries additional fixes and tweaks; releases here are
 > **unsigned** community builds (Gatekeeper workaround required on first launch).
+
+## What this fork changes vs upstream
+
+Everything below is on top of upstream
+[Octane0411/open-vibe-island@v1.1.1](https://github.com/Octane0411/open-vibe-island/releases/tag/v1.1.1).
+Each item is one merged commit on this fork's `main` — drop them onto
+upstream individually if you only want a subset.
+
+### Bug fixes — memory & disk
+
+- **BridgeServer**: drop orphan Claude tool / agent / TaskCreate context
+  on session end. The three pending dictionaries used to hold full
+  `toolInput` JSON trees (entire file contents for Edit / Write tools)
+  forever whenever the agent crashed between `preToolUse` and
+  `postToolUse` — measurable RSS growth on long-running sessions.
+- **CodexRolloutDiscovery**: stream rollout JSONL line-by-line in
+  `discoverRecord`. The 10 s rediscover loop was reading whole files
+  with `String(contentsOf:)`; multi-MB rollouts produced ~3× file-size
+  bursts of String allocations every cycle and pushed RSS toward swap.
+- **ClaudeTranscriptDiscovery**: same streaming refactor on the startup
+  recovery path. Heavy users with hundred-MB transcripts saw multi-GB
+  startup peaks and OOMs on lower-RAM machines.
+- **OpenCode plugin debug log**: gated on
+  `OPEN_ISLAND_OPENCODE_DEBUG_LOG` env var. Was unconditionally
+  appending every event to `/tmp/open-island-opencode-debug.log`,
+  growing roughly 25 MB/day per active user with no rotation.
+- **WatchNotificationRelay**: drain *all* pending requests for a
+  resolved session and emit one SSE event per cleared `requestID`. The
+  previous one-at-a-time removal silently leaked every concurrent
+  permission/question past the first.
+- **CodexAppServer.handleIncomingData**: `removeSubrange` instead of
+  `Data(slice)` per line (O(N²) → O(N)) plus an 8 MB safety cap so a
+  malformed peer that never emits `\n` cannot OOM.
+- **CodexAppServerClient**: per-request timeout (default 30 s) wired
+  through the existing `CodexAppServerError.timeout` case. A wedged
+  app-server used to suspend the caller's `Task` forever.
+
+### Bug fixes — UI
+
+- **WorkspaceNameResolver / spotlight branch lookup**: stop calling
+  `gitBranch(for:)` from a SwiftUI computed property. The walk-up-to-`.git`
+  inside the layout pass pegged the process at ~99 % CPU and ~3 GB RSS
+  whenever there were many session rows. Now resolves only via the
+  pure-string `worktreeBranch(for:)` (matches `.claude/worktrees/` and
+  `.git/worktrees/` markers); IO-backed branches need pre-resolution at
+  session creation, not view-body time.
+- **About pane action rows readable in light mode**: `primaryInk` was
+  hardcoded `Color.white.opacity(0.94)`, which became invisible after
+  the new theme picker enabled light mode. Switched to `Color.primary`.
+
+### Features
+
+- **Light / dark / system theme picker** for the main Settings window
+  (Settings → Display → Appearance). The notch overlay intentionally
+  stays unaffected — it has its own notch-aware visual treatment.
+
+### Brand & infrastructure (fork-only)
+
+- Bundle Identifier: `com.thinkerchan.reopenisland`
+- Display name: **ReOpenIsland** (Swift module names stay
+  `OpenIsland*` and `UserDefaults` keys stay `app.openisland.*` so
+  prefs migrate from the original install)
+- Sparkle: `SUFeedURL` points to this fork's `appcast.xml`;
+  `SUPublicEDKey` is **removed**, so the in-app "Check for updates"
+  is best-effort until you generate an EdDSA key pair, embed the
+  public key in `Info.plist`, and sign each release zip
+- CI release workflow stripped of Apple Developer ID signing,
+  notarization, Sparkle EdDSA signing, Homebrew tap update, and the
+  contributors-image cache PR step. CI publishes a draft GitHub
+  Release with an unsigned DMG/ZIP — installers need
+  `xattr -dr com.apple.quarantine /Applications/ReOpenIsland.app`
+  on first launch
 
 ---
 
@@ -121,7 +193,7 @@ Think of it as an open-source [Vibe Island](https://vibeisland.app/) — **free,
 
 ### Option 1: Download
 
-Grab the latest DMG from [GitHub Releases](https://github.com/thinkerchan/open-vibe-island/releases) — signed and notarized, ready to run.
+Grab the latest DMG from [GitHub Releases](https://github.com/thinkerchan/reopen-vibe-island/releases) — signed and notarized, ready to run.
 
 ### Option 2: Homebrew
 
@@ -134,7 +206,7 @@ Upgrade later with `brew upgrade --cask openisland`.
 ### Option 3: Build from source
 
 ```bash
-git clone https://github.com/thinkerchan/open-vibe-island.git
+git clone https://github.com/thinkerchan/reopen-vibe-island.git
 cd open-vibe-island
 open Package.swift   # Opens in Xcode — hit Run
 ```
@@ -198,7 +270,7 @@ Copy this prompt into your agent (Claude Code, Codex, etc.) to auto-generate a w
 <summary>Click to expand</summary>
 
 ```
-I'm having an issue with ReOpenIsland (https://github.com/thinkerchan/open-vibe-island).
+I'm having an issue with ReOpenIsland (https://github.com/thinkerchan/reopen-vibe-island).
 
 Please help me file a GitHub issue. Do the following:
 
@@ -219,26 +291,26 @@ Please help me file a GitHub issue. Do the following:
    - Body with sections: **Environment**, **Description**, **Steps to Reproduce**, **Expected vs Actual Behavior**
    - Add label "bug" if applicable
 
-Repository: thinkerchan/open-vibe-island
+Repository: thinkerchan/reopen-vibe-island
 ```
 
 </details>
 
 ## Star History
 
-<a href="https://star-history.com/#thinkerchan/open-vibe-island&Date">
+<a href="https://star-history.com/#thinkerchan/reopen-vibe-island&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=thinkerchan/open-vibe-island&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=thinkerchan/open-vibe-island&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=thinkerchan/open-vibe-island&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=thinkerchan/reopen-vibe-island&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=thinkerchan/reopen-vibe-island&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=thinkerchan/reopen-vibe-island&type=Date" />
  </picture>
 </a>
 
 ## Contributors
 
-<a href="https://github.com/thinkerchan/open-vibe-island/graphs/contributors">
+<a href="https://github.com/thinkerchan/reopen-vibe-island/graphs/contributors">
   <!-- CONTRIBUTORS-IMG:START -->
-  <img src="https://contrib.rocks/image?repo=thinkerchan/open-vibe-island&t=1778349385" />
+  <img src="https://contrib.rocks/image?repo=thinkerchan/reopen-vibe-island&t=1778349385" />
   <!-- CONTRIBUTORS-IMG:END -->
 </a>
 
