@@ -28,6 +28,12 @@
 "settings.general.suppressFrontmostNotifications" = "Suppress notifications for focused sessions";
 "settings.general.showCodexUsage" = "Show Codex usage";
 "settings.general.completionReply" = "Reply from completion card";
+"settings.general.appearance" = "Appearance";
+"settings.general.mainWindowColorScheme" = "Settings window theme";
+"settings.general.mainWindowColorScheme.footnote" = "Applies only to the Settings window. The notch overlay keeps its own appearance.";
+"settings.general.colorScheme.system" = "Follow system";
+"settings.general.colorScheme.light" = "Light";
+"settings.general.colorScheme.dark" = "Dark";
 "settings.general.cliHooks" = "CLI Hooks";
 "settings.general.activated" = "Activated";
 "settings.general.install" = "Install";

@@ -23,6 +23,7 @@ final class AppModel {
     private static let showCodexUsageDefaultsKey = "app.showCodexUsage"
     private static let completionReplyEnabledDefaultsKey = "feature.completionReply.enabled"
     private static let suppressFrontmostNotificationsDefaultsKey = "app.suppressFrontmostNotifications"
+    private static let mainWindowColorSchemeDefaultsKey = "appearance.mainWindow.colorScheme"
     private static let legacyIslandSessionStateIndicatorDefaultsKey = "appearance.island.v8.stateIndicator"
     private static let legacyIslandSessionGroupDefaultsKey = "appearance.island.v8.sessionGroup"
     private static let legacyIslandSessionSortDefaultsKey = "appearance.island.v8.sessionSort"
@@ -261,6 +262,18 @@ final class AppModel {
         didSet {
             guard hasFinishedInit, suppressFrontmostNotifications != oldValue else { return }
             UserDefaults.standard.set(suppressFrontmostNotifications, forKey: Self.suppressFrontmostNotificationsDefaultsKey)
+        }
+    }
+    /// Color scheme for the App's main window only (Settings / About).
+    /// The notch overlay is intentionally excluded — it has its own
+    /// notch-aware visual treatment and stays uniform across themes.
+    /// Defaults to `.dark` to preserve the previous hardcoded behavior;
+    /// existing users see no change after upgrade unless they pick
+    /// "Follow system" or "Light".
+    var mainWindowColorScheme: MainWindowColorScheme = .dark {
+        didSet {
+            guard hasFinishedInit, mainWindowColorScheme != oldValue else { return }
+            UserDefaults.standard.set(mainWindowColorScheme.rawValue, forKey: Self.mainWindowColorSchemeDefaultsKey)
         }
     }
     var launchAtLoginEnabled: Bool = false {
@@ -595,6 +608,9 @@ final class AppModel {
         showDockIcon = UserDefaults.standard.bool(forKey: Self.showDockIconDefaultsKey)
         hapticFeedbackEnabled = UserDefaults.standard.bool(forKey: Self.hapticFeedbackEnabledDefaultsKey)
         suppressFrontmostNotifications = UserDefaults.standard.bool(forKey: Self.suppressFrontmostNotificationsDefaultsKey)
+        mainWindowColorScheme = MainWindowColorScheme(
+            rawValue: UserDefaults.standard.string(forKey: Self.mainWindowColorSchemeDefaultsKey) ?? ""
+        ) ?? .dark
         if UserDefaults.standard.object(forKey: Self.showCodexUsageDefaultsKey) != nil {
             showCodexUsage = UserDefaults.standard.bool(forKey: Self.showCodexUsageDefaultsKey)
         } else {
